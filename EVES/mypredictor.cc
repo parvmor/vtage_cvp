@@ -13,8 +13,6 @@ int seq_commit;
 #define FASTINST (actual_latency == 1)
 #define MFASTINST (actual_latency < 3)
 
-std::map<uint64_t, std::pair<uint64_t, uint64_t>> inout;
-
 void getPredVtage(ForUpdate *U, uint64_t &predicted_value) {
   bool predvtage = false;
   uint64_t pc = U->pc;
@@ -123,13 +121,6 @@ bool getPrediction(uint64_t seq_no, uint64_t pc, uint8_t piece,
   // the two predictions are very rarely both high confidence; when they are
   // pick the VTAGE prediction
 
-  if (U->predstride or U->predvtage) {
-    if (inout.find(seq_no) == inout.end()) {
-      inout[seq_no] = std::make_pair(0xdeadbeef, predicted_value);
-    } else {
-      inout[seq_no].second = predicted_value;
-    }
-  }
   return (U->predstride || U->predvtage);
 }
 
@@ -663,12 +654,6 @@ void UpdateVtagePred(ForUpdate *U, uint64_t actual_value, int actual_latency) {
 
 void updatePredictor(uint64_t seq_no, uint64_t actual_addr,
                      uint64_t actual_value, uint64_t actual_latency) {
-  if (actual_value != 0xdeadbeef) {
-    if (inout.find(seq_no) == inout.end()) {
-      inout[seq_no].second = 0xdeadbeef;
-    }
-    inout[seq_no].first = actual_value;
-  }
   ForUpdate *U;
   U = &Update[seq_no & (MAXINFLIGHT - 1)];
   if (U->todo == 1) {
@@ -747,37 +732,6 @@ void speculativeUpdate(
     }
 }
 
-void beginPredictor(int argc_other, char **argv_other) {}
+void beginPredictor(int argc_other, char **argv_other) { }
 
-void endPredictor() {
-#ifndef LIMITSTUDY
-  int SIZE = 0;
-  SIZE = NBWAYSTR * (1 << LOGSTR) *
-             (67 + LOGSTRIDE + TAGWIDTHSTR + WIDTHCONFIDSTR) +
-         16; // the SafeStride counter
-  printf("STORAGE SIZE: STRIDE (%d bits)", SIZE);
-
-  int INTER = (((64 - LOGLDATA) + 2) * 3 << LOGLDATA); // the 64 bits data words
-                                                       // - LOGLDATA implicits
-                                                       // bits  + 2 u bits
-  printf(" |Value array:  (%d bits)", INTER);
-  SIZE += INTER;
-  INTER = BANKSIZE * NBBANK *
-              (TAGWIDTH + (LOGLDATA + 2) + WIDTHCONFID +
-               UWIDTH) // the VTAGE entries
-          + 8          // the LastMispVT counter
-          + 10;        // the TICK counter
-
-  printf(" |VTAGE:  (%d bits)", INTER);
-  SIZE += INTER;
-  printf(" ||| TOTAL SIZE: %d bits\n", SIZE);
-#endif
-
-  for (auto &e : inout) {
-    if (e.second.first == 0xdeadbeef or e.second.second == 0xdeadbeef) {
-      continue;
-    }
-    std::cerr << e.first << ',' << (e.second.first == e.second.second)
-              << std::endl;
-  }
-}
+void endPredictor() { }
