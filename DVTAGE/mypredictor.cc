@@ -72,7 +72,7 @@ bool getPrediction(uint64_t seq_no, uint64_t pc, uint8_t piece, uint64_t& predic
             int64_t last_value = int64_t(tage_entry->last_value);
             int64_t stride = int64_t(tage_entry->stride);
             int64_t inflight_cnt = 0;
-            for (uint64_t i = commited_seq + 1; i < seq_no; i++) {
+            for (uint64_t i = committed_seq + 1; i < seq_no; i++) {
                 inflight_cnt += (inflight_entries[i & (INFLIGHT_MAX - 1)].pc == pc);
             }
             predicted_value = uint64_t(last_value + (inflight_cnt + 1) * stride);
@@ -88,11 +88,52 @@ void speculativeUpdate(uint64_t seq_no, bool eligible, uint8_t prediction_result
                        uint64_t pc, uint64_t next_pc, InstClass insn, uint8_t piece,
                        uint64_t src1, uint64_t src2, uint64_t src3, uint64_t dst)
 {
+    inflight_entry_t *inflight_entry;
+    inflight_entry = inflight_entries + (seq_no & (INFLIGHT_MAX - 1));
+    if (eligible) {
+        last_mispred += 1;
+        inflight_entry->operands_cnt =
+            (src1 != 0xdeadbeef) + (src2 != 0xdeadbeef) + (src3 != 0xdeadbeef);
+        inflight_entry->to_update = true;
+        inflight_entry->instruction_type = insn;
+        inflight_entry->prediction_result = prediction_result;
+        if (prediction_result == 0) {
+            last_mispred = 0;
+        }
+    }
+
+    bool is_branch = false;
+    is_branch |= insn == condBranchInstClass;
+    is_branch |= insn == uncondDirectBranchInstClass;
+    is_branch |= insn == uncondIndirectBranchInstClass;
+    if (is_branch) {
+        // TODO: Check why this?
+        // if (pc != next_pc - 4) {
+        //    global_pth_hist = (global_pth_hist << 1) ^ (pc >> 2);
+        //    global_tgt_hist = (global_tgt_hist << 1) ^ (next_pc >> 2);
+        // }
+        global_pth_hist = (global_pth_hist << 1) ^ (pc >> 2);
+        global_tgt_hist = (global_tgt_hist << 1) ^ (next_pc >> 2);
+    }
+
     return;
 }
 
 void updatePredictor(uint64_t seq_no, uint64_t actual_addr,
                      uint64_t actual_value, uint64_t actual_latency)
 {
+    inflight_entry_t *inflight_entry;
+    inflight_entry = inflight_entries + (seq_no & (INFLIGHT_MAX - 1));
+
+    if (inflight_entry->to_update) {
+        // TODO: Update the predictor here.
+        inflight_entry->to_update = false;
+    }
+
+    global_val_hist = (global_val_hist << 1) ^ (actual_value >> 2);
+
+    // Change the committed sequence number.
+    committed_seq = seq_no;
+
     return;
 }

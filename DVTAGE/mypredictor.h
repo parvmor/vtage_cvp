@@ -23,7 +23,7 @@ static uint64_t tage_hist[TAGE_HIST_LEN] = { 0, 1, 3, 6, 13, 20, 30, 36, 45, 57 
 #define TAGE_BANK_CNT (60)
 #define TAGE_SIZE (TAGE_BANK_CNT * TAGE_BANK_SIZE)
 
-static uint64_t commited_seq;
+static uint64_t committed_seq;
 
 static uint64_t global_val_hist = 0;
 static uint64_t global_pth_hist = 0;
@@ -80,13 +80,18 @@ uint64_t tage_index(int i, uint64_t pc)
         aux >>= (TAGE_BANK_LOG - (TAGE_HIST_LEN - j) % (TAGE_BANK_LOG - 1));
     }
 
-    // hash with global value history
-    aux ^= ((1 << hist_len) - 1) & global_val_hist;
-    for (int j = 0; j < TAGE_HIST_LEN; j++) {
-        hash_val ^= aux;
-        aux ^= (aux & 15) << 16;
-        aux >>= (TAGE_BANK_LOG - (TAGE_HIST_LEN - j) % (TAGE_BANK_LOG - 1));
-    }
+    // Do not use value history. Rationale:
+    // In loops a pc would be mapped to different entries
+    // and hence stride prediction would fail to perform
+    //
+    //
+    // // hash with global value history
+    // aux ^= ((1 << hist_len) - 1) & global_val_hist;
+    // for (int j = 0; j < TAGE_HIST_LEN; j++) {
+    //     hash_val ^= aux;
+    //     aux ^= (aux & 15) << 16;
+    //     aux >>= (TAGE_BANK_LOG - (TAGE_HIST_LEN - j) % (TAGE_BANK_LOG - 1));
+    // }
 
     return hash_val & (TAGE_BANK_SIZE - 1);
 }
@@ -120,13 +125,13 @@ uint64_t tage_tag(int i, uint64_t pc)
         aux >>= (TAGE_TAG_LOG - (TAGE_HIST_LEN - j) % (TAGE_TAG_LOG - 1));
     }
 
-    // hash with global value history
-    aux ^= ((1 << hist_len) - 1) & global_val_hist;
-    for (int j = 0; j < TAGE_HIST_LEN; j++) {
-        hash_val ^= aux;
-        aux ^= (aux & 31) << 14;
-        aux >>= (TAGE_TAG_LOG - (TAGE_HIST_LEN - j) % (TAGE_TAG_LOG - 1));
-    }
+    // // hash with global value history
+    // aux ^= ((1 << hist_len) - 1) & global_val_hist;
+    // for (int j = 0; j < TAGE_HIST_LEN; j++) {
+    //     hash_val ^= aux;
+    //     aux ^= (aux & 31) << 14;
+    //     aux >>= (TAGE_TAG_LOG - (TAGE_HIST_LEN - j) % (TAGE_TAG_LOG - 1));
+    // }
 
     return hash_val & ((1 << TAGE_TAG_LOG) - 1);
 }
