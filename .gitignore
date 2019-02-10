@@ -1,0 +1,5 @@
+memory_traces/
+**/*.o
+**/cvp
+**/output/
+**/*.gz
