@@ -1,64 +1,8 @@
-/*Copyright (c) <2018>, INRIA : Institut National de Recherche en Informatique
-et en Automatique (French National Research Institute for Computer Science and
-Applied Mathematics) All rights reserved.
-
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this
-list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice,
-this list of conditions and the following disclaimer in the documentation and/or
-other materials provided with the distribution.
-
-3. Neither the name of the copyright holder nor the names of its contributors
-may be used to endorse or promote products derived from this software without
-specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
-
-/* Same predictor for the 3 tracks, but with different parameters*/
-
 #include <deque>
 #include <vector>
 #define PREDSTRIDE
-#define PREDVTAGE
+// #define PREDVTAGE
 
-// 32KB //
-//#define K32
-#ifdef K32
-
-// 4.202 //3.729 for stride only  //3.570 for VTAGE only
-// 262018 bits
-#define UWIDTH 2
-#define LOGLDATA 9
-#define LOGBANK 7
-#define TAGWIDTH 11
-#define NBBANK 49
-
-#define NHIST 8
-int HL[NHIST + 1] = {0, 0, 3, 7, 15, 31, 63, 90, 127};
-
-#define LOGSTR 4
-#define NBWAYSTR 3
-#define TAGWIDTHSTR 14
-#define LOGSTRIDE 20
-#endif
-// END 32 KB//
-
-// 8KB //
-#define K8
-#ifdef K8
 // 8KB
 // 4.026 //3.729 Stride only // 3.437 for TAGE  only
 // 65378 bits
@@ -75,29 +19,6 @@ int HL[NHIST + 1] = {0, 0, 1, 3, 6, 12, 18, 30};
 #define NBWAYSTR 3
 #define TAGWIDTHSTR 14
 #define LOGSTRIDE 20
-#endif
-// END 8KB //
-
-// UNLIMITED//
-//#define LIMITSTUDY
-#ifdef LIMITSTUDY
-// 4.408 //3.730 Stride only // 3.732 for TAGE  only
-#define UWIDTH 1
-#define LOGLDATA 20
-#define LOGBANK 20
-#define TAGWIDTH 15
-#define NBBANK 63
-
-#define NHIST 14
-int HL[NHIST + 1] = {0,  0,  1,   3,   7,   15,  31, 47,
-                     63, 95, 127, 191, 255, 383, 511};
-#define LOGSTR 20
-#define TAGWIDTHSTR 15
-#define LOGSTRIDE 30
-#define NBWAYSTR 3
-
-#endif
-// END UNLIMITED //
 
 #define WIDTHCONFID 3
 #define MAXCONFID ((1 << WIDTHCONFID) - 1)

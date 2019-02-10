@@ -86,9 +86,7 @@ void getPredStride(ForUpdate *U, uint64_t &predicted_value, uint64_t seq_no) {
     if (SafeStride >= 0) { // hit
       uint64_t LastCommitedValue = STR[STHIT].LastValue;
 
-      if (STR[STHIT].conf >= MAXCONFIDSTR / 4)
-
-      {
+      if (STR[STHIT].conf >= MAXCONFIDSTR / 4) {
         int inflight = 0;
         // compute the number of inflight instances of the instruction
         for (uint64_t i = seq_commit + 1; i < seq_no; i++) {
@@ -111,16 +109,12 @@ bool getPrediction(uint64_t seq_no, uint64_t pc, uint8_t piece,
   U->pc = pc + piece;
   U->predvtage = false;
   U->predstride = false;
-
 #ifdef PREDSTRIDE
   getPredStride(U, predicted_value, seq_no);
 #endif
 #ifdef PREDVTAGE
   getPredVtage(U, predicted_value);
 #endif
-  // the two predictions are very rarely both high confidence; when they are
-  // pick the VTAGE prediction
-
   return (U->predstride || U->predvtage);
 }
 
@@ -129,27 +123,20 @@ bool getPrediction(uint64_t seq_no, uint64_t pc, uint8_t piece,
 // prediction
 bool strideupdateconf(ForUpdate *U, uint64_t actual_value, int actual_latency,
                       int stride) {
-#define UPDATECONFSTR2                                                         \
+#define UPDATECONFSTR                                                          \
   (((!U->prediction_result) || (U->predstride)) &&                             \
    ((random() & ((1 << (NOTLLCMISS + NOTL2MISS + NOTL1MISS + 2 * MFASTINST +   \
                         2 * (U->INSTTYPE != loadInstClass))) -                 \
                  1)) == 0))
-#define UPDATECONFSTR1                                                         \
-  (abs(stride >= 8) ? (UPDATECONFSTR2 || UPDATECONFSTR2) : (UPDATECONFSTR2))
-#define UPDATECONFSTR                                                          \
-  (abs(stride >= 64) ? (UPDATECONFSTR1 || UPDATECONFSTR1) : (UPDATECONFSTR1))
   return (UPDATECONFSTR &
           ((abs(stride) > 1) || (U->INSTTYPE != loadInstClass) ||
            ((stride == -1) & ((random() & 1) == 0)) ||
            ((stride == 1) & ((random() & 3) == 0))));
-  // All strides are not equal: the smaller the stride the smaller the benefit
-  // (not huge :-))
 }
 
 // Allocate or not if instruction absent from the predictor
 bool StrideAllocateOrNot(ForUpdate *U, uint64_t actual_value,
                          int actual_latency) {
-#ifndef LIMITSTUDY
   bool X = false;
 #define LOGPBINVSTR 4
   switch (U->INSTTYPE) {
@@ -168,12 +155,7 @@ bool StrideAllocateOrNot(ForUpdate *U, uint64_t actual_value,
           ((1 << (NOTLLCMISS + NOTL2MISS + NOTL1MISS + MFASTINST)) - 1)) == 0);
     break;
   };
-
   return (X);
-
-#else
-  return (true);
-#endif
 }
 
 void UpdateStridePred(ForUpdate *U, uint64_t actual_value, int actual_latency) {
@@ -225,43 +207,27 @@ void UpdateStridePred(ForUpdate *U, uint64_t actual_value, int actual_latency) {
       } else {
         // misprediction
 
-        {
-          if (STR[STHIT].conf > (1 << (WIDTHCONFIDSTR - 3)))
-
-          {
-            STR[STHIT].conf -= (1 << (WIDTHCONFIDSTR - 3));
-          } else {
-            STR[STHIT].conf = 0;
-            STR[STHIT].u = 0;
-          }
+        if (STR[STHIT].conf > (1 << (WIDTHCONFIDSTR - 3))) {
+          STR[STHIT].conf -= (1 << (WIDTHCONFIDSTR - 3));
+        } else {
+          STR[STHIT].conf = 0;
+           STR[STHIT].u = 0;
         }
-
-        // this allows to  restart a new sequence with a different   stride
+        // this allows to restart a new sequence with a different stride
         STR[STHIT].NotFirstOcc = 0;
       }
     } else {
-      // First occurence
-      //        if (STR[STHIT].NotFirstOcc == 0)
-      if (stridetoalloc != 0)
-      //             if ((stridetoalloc != 0) && (stridetoalloc!=1)  &&
-      //             (((int64_t) stridetoalloc) != -1))
-      // we do not waste the stride predictor storage for stride zero
-      {
+      if (stridetoalloc != 0 || true) {
         STR[STHIT].Stride = stridetoalloc;
       } else {
-        // do not pollute the stride predictor with constant data or with
-        // invalid strides
         STR[STHIT].Stride = 0xffff;
         STR[STHIT].conf = 0;
         STR[STHIT].u = 0;
       }
-
       STR[STHIT].NotFirstOcc++;
     }
-  } else // the address was not present and is not predicted by VTAGE
-      if (!U->prediction_result) {
-    if (StrideAllocateOrNot(U, actual_value,
-                            actual_latency)) { // try to allocate
+  } else if (!U->prediction_result) {
+    if (StrideAllocateOrNot(U, actual_value, actual_latency)) {
       int X = random() % NBWAYSTR;
       bool done = false;
       // the target entry is not a stride candidate
@@ -316,36 +282,12 @@ bool vtageupdateconf(ForUpdate *U, uint64_t actual_value, int actual_latency) {
 #define LOWVAL                                                                 \
   ((abs(2 * ((int64_t)actual_value) + 1) < (1 << 16)) + (actual_value == 0))
 
-#ifdef K8
-#define updateconf                                                             \
-  ((random() &                                                                 \
-    (((1 << (LOWVAL + NOTLLCMISS + 2 * FASTINST + NOTL2MISS + NOTL1MISS +      \
-             ((U->INSTTYPE != loadInstClass) || NOTL1MISS) +                   \
-             (U->HitBank > 1))) -                                              \
-      1))) == 0)
-#else
-#define updateconf                                                             \
+#define UPDATECONF                                                             \
   ((random() &                                                                 \
     (((1 << (LOWVAL + NOTLLCMISS + 2 * FASTINST + NOTL2MISS + NOTL1MISS +      \
              ((U->INSTTYPE != loadInstClass) || NOTL1MISS))) -                 \
       1))) == 0)
-#endif
 
-#ifdef LIMITSTUDY
-#define UPDATECONF2                                                            \
-  ((U->HitBank <= 1)                                                           \
-       ? (updateconf || updateconf) || (updateconf || updateconf)              \
-       : (updateconf || updateconf))
-#define UPDATECONF (UPDATECONF2 || UPDATECONF2)
-#else
-#ifdef K32
-#define UPDATECONF                                                             \
-  (((U->HitBank <= 1) ? (updateconf || updateconf) : updateconf))
-#else
-// K8
-#define UPDATECONF updateconf
-#endif
-#endif
   switch (U->INSTTYPE) {
   case aluInstClass:
 
@@ -400,42 +342,15 @@ bool VtageAllocateOrNot(ForUpdate *U, uint64_t actual_value, int actual_latency,
   case undefInstClass:
   case aluInstClass:
   case storeInstClass:
-#ifndef LIMITSTUDY
     if (((U->NbOperand >= 2) & ((random() & 15) == 0)) ||
         ((U->NbOperand < 2) & ((random() & 63) == 0)))
-#endif
     case fpInstClass:
     case slowAluInstClass:
     case loadInstClass:
-
-#ifndef LIMITSTUDY
-      X = (((random() &
-#ifdef K8
-             ((4 <<
-#else
-             // K32
-             ((2 <<
-#endif
-               (
-#ifdef K32
-                   ((U->INSTTYPE != loadInstClass) || (NOTL1MISS)) *
-#endif
-                       LOWVAL +
-                   NOTLLCMISS + NOTL2MISS +
-#ifdef K8
-                   2 *
-#endif
-                       NOTL1MISS +
-                   2 * FASTINST)) -
-              1)) == 0) ||
-#ifdef K8
-           (((random() & 3) == 0) && MedConf));
-#else
-           (MedConf));
-#endif
-#else
-    X = true;
-#endif
+        X = ((random() & ((2 << (
+            ((U->INSTTYPE != loadInstClass) || (NOTL1MISS)) +
+              LOWVAL + NOTLLCMISS + NOTL2MISS + NOTL1MISS + 2 * FASTINST)) - 1)) == 0) ||
+           MedConf;
 
     break;
   case uncondIndirectBranchInstClass:
@@ -444,7 +359,7 @@ bool VtageAllocateOrNot(ForUpdate *U, uint64_t actual_value, int actual_latency,
   default:
     X = false;
   };
-  return (X);
+  return X;
 }
 
 void UpdateVtagePred(ForUpdate *U, uint64_t actual_value, int actual_latency) {
@@ -535,12 +450,7 @@ void UpdateVtagePred(ForUpdate *U, uint64_t actual_value, int actual_latency) {
                       LDATA[X[i]].data = actual_value;
                       LDATA[X[i]].u = 1;
                       Vtage[index].hashpt = X[i];
-                    } else
-#ifdef K8
-                        if ((random() & 31) == 0)
-#else
-                        if ((random() & 3) == 0)
-#endif
+                    } else if ((random() & 3) == 0)
                       LDATA[X[i]].u--;
                   }
               }
@@ -550,8 +460,6 @@ void UpdateVtagePred(ForUpdate *U, uint64_t actual_value, int actual_latency) {
       }
 
       else {
-        // misprediction: reset
-
         Vtage[index].hashpt = HashData;
         if ((Vtage[index].conf > MAXCONFID / 2) ||
             ((Vtage[index].conf == MAXCONFID / 2) & (Vtage[index].u == 3)) ||
@@ -634,11 +542,7 @@ void UpdateVtagePred(ForUpdate *U, uint64_t actual_value, int actual_latency) {
           }
         }
 
-#ifdef K8
-        TICK += NA - (3 * ALL);
-#else
         TICK += (NA - (5 * ALL));
-#endif
         if (TICK < 0)
           TICK = 0;
         if (TICK >= MAXTICK) {
@@ -657,10 +561,6 @@ void updatePredictor(uint64_t seq_no, uint64_t actual_addr,
   ForUpdate *U;
   U = &Update[seq_no & (MAXINFLIGHT - 1)];
   if (U->todo == 1) {
-#ifdef LIMITSTUDY
-    // just to force allocations and update on both predictors
-    U->prediction_result = 0;
-#endif
 #ifdef PREDVTAGE
     UpdateVtagePred(U, actual_value, (int)actual_latency);
 #endif
@@ -673,23 +573,10 @@ void updatePredictor(uint64_t seq_no, uint64_t actual_addr,
 }
 
 void speculativeUpdate(
-    uint64_t seq_no, // dynamic micro-instruction # (starts at 0 and increments
-                     // indefinitely)
-    bool eligible, // true: instruction is eligible for value prediction. false:
-                   // not eligible.
-    uint8_t prediction_result, // 0: incorrect, 1: correct, 2: unknown (not
-                               // revealed)
-    // Note: can assemble local and global branch history using pc, next_pc, and
-    // insn.
+    uint64_t seq_no, bool eligible, uint8_t prediction_result,
     uint64_t pc, uint64_t next_pc, InstClass insn, uint8_t piece,
-    // Note: up to 3 logical source register specifiers, up to 1 logical
-    // destination register specifier. 0xdeadbeef means that logical register
-    // does not exist. May use this information to reconstruct architectural
-    // register file state (using log. reg. and value at updatePredictor()).
     uint64_t src1, uint64_t src2, uint64_t src3, uint64_t dst) {
 
-  // the framework does not really allow  to filter the predictions, so we
-  // predict every instruction
   ForUpdate *U;
   U = &Update[seq_no & (MAXINFLIGHT - 1)];
 
