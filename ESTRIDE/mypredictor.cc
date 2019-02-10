@@ -1,3 +1,4 @@
+#include <cassert>
 #include <inttypes.h>
 #include <iostream>
 #include <map>
@@ -31,6 +32,7 @@ void getPredStride(ForUpdate *U, uint64_t &predicted_value, uint64_t seq_no) {
             i) %
            (NBWAYSTR * (1 << LOGSTR));
     int j = (NBWAYSTR - i);
+    assert(j >= 0);
 
     // Orthogonal hashing
     TAG[i] = ((pc >> (LOGSTR - j)) ^ (pc >> (2 * LOGSTR - j)) ^
@@ -86,7 +88,7 @@ bool strideupdateconf(ForUpdate *U, uint64_t actual_value, int actual_latency,
                       int stride) {
   // Some black magic in numbers
 #define UPDATECONFSTR                                                          \
-  (U->predstride &&                             \
+  (true &&                             \
    ((random() & ((1 << (NOTLLCMISS + NOTL2MISS + NOTL1MISS + 2 * MFASTINST +   \
                         2 * (U->INSTTYPE != loadInstClass))) -                 \
                  1)) == 0))
@@ -182,7 +184,7 @@ void UpdateStridePred(ForUpdate *U, uint64_t actual_value, int actual_latency) {
       }
     } else {
       // Stride is unknown
-      if (stridetoalloc != 0) {
+      if (stridetoalloc != 0 or true) {
         // Allocate only non-zero strides
         STR[STHIT].Stride = stridetoalloc;
       } else {

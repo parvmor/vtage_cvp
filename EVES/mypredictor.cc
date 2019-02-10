@@ -124,7 +124,7 @@ bool getPrediction(uint64_t seq_no, uint64_t pc, uint8_t piece,
 bool strideupdateconf(ForUpdate *U, uint64_t actual_value, int actual_latency,
                       int stride) {
 #define UPDATECONFSTR                                                          \
-  (((!U->prediction_result) || (U->predstride)) &&                             \
+  (                             \
    ((random() & ((1 << (NOTLLCMISS + NOTL2MISS + NOTL1MISS + 2 * MFASTINST +   \
                         2 * (U->INSTTYPE != loadInstClass))) -                 \
                  1)) == 0))
@@ -388,8 +388,6 @@ void UpdateVtagePred(ForUpdate *U, uint64_t actual_value, int actual_latency) {
       if (!ShouldWeAllocate) {
         // the predicted result is satisfactory: either a good hash without
         // data, or a pointer on the correct data
-        ShouldWeAllocate = false;
-
         if (Vtage[index].conf < MAXCONFID)
           if (vtageupdateconf(U, actual_value, actual_latency))
             Vtage[index].conf++;
@@ -457,9 +455,7 @@ void UpdateVtagePred(ForUpdate *U, uint64_t actual_value, int actual_latency) {
           }
         }
 
-      }
-
-      else {
+      } else {
         Vtage[index].hashpt = HashData;
         if ((Vtage[index].conf > MAXCONFID / 2) ||
             ((Vtage[index].conf == MAXCONFID / 2) & (Vtage[index].u == 3)) ||

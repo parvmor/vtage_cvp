@@ -64,9 +64,7 @@ bool getPrediction(uint64_t seq_no, uint64_t pc, uint8_t piece,
   U = &Update[seq_no & (MAXINFLIGHT - 1)];
   // pc + piece seems to be unique here.
   U->pc = pc + piece;
-
   getPredVtage(U, predicted_value);
-
   return U->predvtage;
 }
 
@@ -75,14 +73,12 @@ bool vtageupdateconf(ForUpdate *U, uint64_t actual_value, int actual_latency) {
 
 #define LOWVAL ((abs(2 * ((int64_t)actual_value) + 1) < (1 << 16)) + (actual_value == 0))
 
-#define updateconf                                                             \
+#define UPDATECONF                                                             \
   ((random() &                                                                 \
     (((1 << (LOWVAL + NOTLLCMISS + 2 * FASTINST + NOTL2MISS + NOTL1MISS +      \
              ((U->INSTTYPE != loadInstClass) || NOTL1MISS) +                   \
              (U->HitBank > 1))) -                                              \
       1))) == 0)
-
-#define UPDATECONF updateconf
 
   switch (U->INSTTYPE) {
   case aluInstClass:
@@ -145,9 +141,9 @@ bool VtageAllocateOrNot(ForUpdate *U, uint64_t actual_value, int actual_latency,
   case loadInstClass:
         X = (((
           random() & (
-              (4 << (LOWVAL + NOTLLCMISS + NOTL2MISS + 2 * NOTL1MISS + 2 * FASTINST)) - 1)
+              (2 << ((U->INSTTYPE != loadInstClass) + LOWVAL + NOTLLCMISS + NOTL2MISS + 2 * NOTL1MISS + 2 * FASTINST)) - 1)
           ) == 0) ||
-          (((random() & 3) == 0) && MedConf));
+          MedConf);
     break;
   case uncondIndirectBranchInstClass:
     X = true;
@@ -179,8 +175,8 @@ void UpdateVtagePred(ForUpdate *U, uint64_t actual_value, int actual_latency) {
     if (Vtage[index].tag == U->GTAG[U->HitBank]) {
       uint64_t indindex = Vtage[index].hashpt;
       ShouldWeAllocate =
-          ((indindex >= 3 * BANKDATA) & (indindex != HashData)) ||
-          ((indindex < 3 * BANKDATA) & (LDATA[indindex].data != actual_value));
+          ((indindex >= 3 * BANKDATA) && (indindex != HashData)) ||
+          ((indindex < 3 * BANKDATA) && (LDATA[indindex].data != actual_value));
       if (!ShouldWeAllocate) {
         // the predicted result is satisfactory: either a good hash without
         // data, or a pointer on the correct data
@@ -249,11 +245,7 @@ void UpdateVtagePred(ForUpdate *U, uint64_t actual_value, int actual_latency) {
           }
         }
 
-      }
-
-      else {
-        // misprediction: reset
-
+      } else {
         Vtage[index].hashpt = HashData;
         if ((Vtage[index].conf > MAXCONFID / 2) ||
             ((Vtage[index].conf == MAXCONFID / 2) & (Vtage[index].u == 3)) ||
@@ -336,7 +328,7 @@ void UpdateVtagePred(ForUpdate *U, uint64_t actual_value, int actual_latency) {
           }
         }
 
-        TICK += NA - (3 * ALL);
+        TICK += NA - (5 * ALL);
         if (TICK < 0)
           TICK = 0;
         if (TICK >= MAXTICK) {
