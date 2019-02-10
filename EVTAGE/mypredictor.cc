@@ -76,8 +76,7 @@ bool vtageupdateconf(ForUpdate *U, uint64_t actual_value, int actual_latency) {
 #define UPDATECONF                                                             \
   ((random() &                                                                 \
     (((1 << (LOWVAL + NOTLLCMISS + 2 * FASTINST + NOTL2MISS + NOTL1MISS +      \
-             ((U->INSTTYPE != loadInstClass) || NOTL1MISS) +                   \
-             (U->HitBank > 1))) -                                              \
+             ((U->INSTTYPE != loadInstClass) || NOTL1MISS))) -                 \
       1))) == 0)
 
   switch (U->INSTTYPE) {
@@ -141,7 +140,7 @@ bool VtageAllocateOrNot(ForUpdate *U, uint64_t actual_value, int actual_latency,
   case loadInstClass:
         X = (((
           random() & (
-              (2 << ((U->INSTTYPE != loadInstClass) + LOWVAL + NOTLLCMISS + NOTL2MISS + 2 * NOTL1MISS + 2 * FASTINST)) - 1)
+              (2 << ((U->INSTTYPE != loadInstClass) + LOWVAL + NOTLLCMISS + NOTL2MISS + 1 * NOTL1MISS + 2 * FASTINST)) - 1)
           ) == 0) ||
           MedConf);
     break;

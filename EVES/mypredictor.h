@@ -1,7 +1,7 @@
 #include <deque>
 #include <vector>
-#define PREDSTRIDE
-// #define PREDVTAGE
+// #define PREDSTRIDE
+#define PREDVTAGE
 
 // 8KB
 // 4.026 //3.729 Stride only // 3.437 for TAGE  only
