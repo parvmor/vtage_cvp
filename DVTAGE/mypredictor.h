@@ -6,8 +6,9 @@
 #define USE_WIDTH (2)
 #define USE_MAX ((1 << USE_WIDTH) - 1)
 
-#define CONF_WIDTH (3)
+#define CONF_WIDTH (4)
 #define CONF_MAX ((1 << CONF_WIDTH) - 1)
+#define CONF_THRESHOLD (CONF_MAX)
 
 #define STRIDE_LOG (25)
 #define STRIDE_MIN (-(1 << (STRIDE_LOG - 1)))
@@ -22,7 +23,7 @@ static uint64_t tage_hist[TAGE_HIST_LEN] = { 0, 1, 3, 6, 13, 20, 30, 36, 45, 57 
 #define TAGE_BANK_CNT (60)
 #define TAGE_SIZE (TAGE_BANK_CNT * TAGE_BANK_SIZE)
 
-#define INFLIGHT_MAX (256)
+static uint64_t commited_seq;
 
 static uint64_t global_val_hist = 0;
 static uint64_t global_pth_hist = 0;
@@ -54,9 +55,9 @@ static int64_t age_counter = 0;
 // hashee into strings. As of now stealing the hash
 // functions from EVES implementation.
 //
-// vtage_index computes hash of `pc` with the
+// tage_index computes hash of `pc` with the
 // global history to index into `i`th vtage bank.
-uint64_t vtage_index(int i, uint64_t pc)
+uint64_t tage_index(int i, uint64_t pc)
 {
     uint64_t hash_val = 0;
     uint64_t hist_len, aux;
@@ -94,9 +95,9 @@ uint64_t vtage_index(int i, uint64_t pc)
 // hashee into strings. As of now stealing the hash
 // functions from EVES implementation.
 //
-// vtage_tag computes hash of `pc` with the
+// tage_tag computes hash of `pc` with the
 // global history to get tag of `i`th vtage bank.
-uint64_t vtage_tag(int i, uint64_t pc)
+uint64_t tage_tag(int i, uint64_t pc)
 {
     uint64_t hash_val = 0;
     uint64_t hist_len, aux;
@@ -130,14 +131,16 @@ uint64_t vtage_tag(int i, uint64_t pc)
     return hash_val & ((1 << TAGE_TAG_LOG) - 1);
 }
 
+#define INFLIGHT_MAX (1 << 9)
 struct inflight_entry_t {
-    bool prediction;
+    bool predicted;
     bool prediction_result;
     bool to_update;
-    uint64_t global_index[TAGE_HIST_LEN];
-    uint64_t global_tag[TAGE_HIST_LEN];
+    uint64_t global_index[TAGE_HIST_LEN + 1];
+    uint64_t global_tag[TAGE_HIST_LEN + 1];
     uint64_t hit_bank;
     uint64_t pc;
+    uint64_t predicted_val;
     uint8_t instruction_type;
     uint8_t operands_cnt;
 };
