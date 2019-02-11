@@ -1,11 +1,14 @@
+#include <algorithm>
+#include <chrono>
 #include <inttypes.h>
 #include <iostream>
-#include <map>
+#include <random>
 #include <utility>
 
 #include "../cvp_kit/cvp.h"
 #include "mypredictor.h"
 int seq_commit;
+std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
 
 #define NOTLLCMISS (actual_latency < 150)
 #define NOTL2MISS (actual_latency < 60)
@@ -125,13 +128,13 @@ bool strideupdateconf(ForUpdate *U, uint64_t actual_value, int actual_latency,
                       int stride) {
 #define UPDATECONFSTR                                                          \
   (                             \
-   ((random() & ((1 << (NOTLLCMISS + NOTL2MISS + NOTL1MISS + 2 * MFASTINST +   \
+   ((rng() & ((1 << (NOTLLCMISS + NOTL2MISS + NOTL1MISS + 2 * MFASTINST +   \
                         2 * (U->INSTTYPE != loadInstClass))) -                 \
                  1)) == 0))
   return (UPDATECONFSTR &
           ((abs(stride) > 1) || (U->INSTTYPE != loadInstClass) ||
-           ((stride == -1) & ((random() & 1) == 0)) ||
-           ((stride == 1) & ((random() & 3) == 0))));
+           ((stride == -1) & ((rng() & 1) == 0)) ||
+           ((stride == 1) & ((rng() & 3) == 0))));
 }
 
 // Allocate or not if instruction absent from the predictor
@@ -142,16 +145,16 @@ bool StrideAllocateOrNot(ForUpdate *U, uint64_t actual_value,
   switch (U->INSTTYPE) {
   case aluInstClass:
   case storeInstClass:
-    X = ((random() & ((1 << (LOGPBINVSTR + 2)) - 1)) == 0);
+    X = ((rng() & ((1 << (LOGPBINVSTR + 2)) - 1)) == 0);
     break;
   case fpInstClass:
-    X = ((random() & ((1 << (LOGPBINVSTR)) - 1)) == 0);
+    X = ((rng() & ((1 << (LOGPBINVSTR)) - 1)) == 0);
     break;
   case slowAluInstClass:
-    X = ((random() & ((1 << (LOGPBINVSTR)) - 1)) == 0);
+    X = ((rng() & ((1 << (LOGPBINVSTR)) - 1)) == 0);
     break;
   case loadInstClass:
-    X = ((random() &
+    X = ((rng() &
           ((1 << (NOTLLCMISS + NOTL2MISS + NOTL1MISS + MFASTINST)) - 1)) == 0);
     break;
   };
@@ -228,7 +231,7 @@ void UpdateStridePred(ForUpdate *U, uint64_t actual_value, int actual_latency) {
     }
   } else if (!U->prediction_result) {
     if (StrideAllocateOrNot(U, actual_value, actual_latency)) {
-      int X = random() % NBWAYSTR;
+      int X = rng() % NBWAYSTR;
       bool done = false;
       // the target entry is not a stride candidate
       for (int i = 0; i < NBWAYSTR; i++) {
@@ -264,7 +267,7 @@ void UpdateStridePred(ForUpdate *U, uint64_t actual_value, int actual_latency) {
         }
       // if unable to allocate: age some target entry
       if (!done) {
-        if ((random() & ((1 << (2 + 2 * (STR[STHIT].conf > (MAXCONFIDSTR) / 8) +
+        if ((rng() & ((1 << (2 + 2 * (STR[STHIT].conf > (MAXCONFIDSTR) / 8) +
                                 2 * (STR[STHIT].conf >= MAXCONFIDSTR / 4))) -
                          1)) == 0)
           STR[STHIT].u--;
@@ -283,7 +286,7 @@ bool vtageupdateconf(ForUpdate *U, uint64_t actual_value, int actual_latency) {
   ((abs(2 * ((int64_t)actual_value) + 1) < (1 << 16)) + (actual_value == 0))
 
 #define UPDATECONF                                                             \
-  ((random() &                                                                 \
+  ((rng() &                                                                 \
     (((1 << (LOWVAL + NOTLLCMISS + 2 * FASTINST + NOTL2MISS + NOTL1MISS +      \
              ((U->INSTTYPE != loadInstClass) || NOTL1MISS))) -                 \
       1))) == 0)
@@ -311,7 +314,7 @@ bool VtageUpdateU(ForUpdate *U, uint64_t actual_value, int actual_latency) {
 
 #define UPDATEU                                                                \
   ((!U->prediction_result) &&                                                  \
-   ((random() &                                                                \
+   ((rng() &                                                                \
      ((1 << (LOWVAL + 2 * NOTL1MISS + (U->INSTTYPE != loadInstClass) +         \
              FASTINST +                                                        \
              2 * (U->INSTTYPE == aluInstClass) * (U->NbOperand < 2))) -        \
@@ -342,12 +345,12 @@ bool VtageAllocateOrNot(ForUpdate *U, uint64_t actual_value, int actual_latency,
   case undefInstClass:
   case aluInstClass:
   case storeInstClass:
-    if (((U->NbOperand >= 2) & ((random() & 15) == 0)) ||
-        ((U->NbOperand < 2) & ((random() & 63) == 0)))
+    if (((U->NbOperand >= 2) & ((rng() & 15) == 0)) ||
+        ((U->NbOperand < 2) & ((rng() & 63) == 0)))
     case fpInstClass:
     case slowAluInstClass:
     case loadInstClass:
-        X = ((random() & ((2 << (
+        X = ((rng() & ((2 << (
             ((U->INSTTYPE != loadInstClass) || (NOTL1MISS)) +
               LOWVAL + NOTLLCMISS + NOTL2MISS + NOTL1MISS + 2 * FASTINST)) - 1)) == 0) ||
            MedConf;
@@ -384,7 +387,7 @@ void UpdateVtagePred(ForUpdate *U, uint64_t actual_value, int actual_latency) {
       uint64_t indindex = Vtage[index].hashpt;
       ShouldWeAllocate =
           ((indindex >= 3 * BANKDATA) & (indindex != HashData)) ||
-          ((indindex < 3 * BANKDATA) & (LDATA[indindex].data != actual_value));
+          ((indindex < 3 * BANKDATA) && (LDATA[indindex].data != actual_value));
       if (!ShouldWeAllocate) {
         // the predicted result is satisfactory: either a good hash without
         // data, or a pointer on the correct data
@@ -427,9 +430,9 @@ void UpdateVtagePred(ForUpdate *U, uint64_t actual_value, int actual_latency) {
               }
             }
             if (!done)
-              if ((random() & 3) == 0) {
+              if ((rng() & 3) == 0) {
                 // data absent: let us try try to steal an entry
-                int i = (((uint64_t)random()) % 3);
+                int i = (((uint64_t)rng()) % 3);
                 bool done = false;
                 for (int j = 0; j < 3; j++) {
                   if ((LDATA[X[i]].u == 0)) {
@@ -448,7 +451,7 @@ void UpdateVtagePred(ForUpdate *U, uint64_t actual_value, int actual_latency) {
                       LDATA[X[i]].data = actual_value;
                       LDATA[X[i]].u = 1;
                       Vtage[index].hashpt = X[i];
-                    } else if ((random() & 3) == 0)
+                    } else if ((rng() & 3) == 0)
                       LDATA[X[i]].u--;
                   }
               }
@@ -482,15 +485,15 @@ void UpdateVtagePred(ForUpdate *U, uint64_t actual_value, int actual_latency) {
       if (VtageAllocateOrNot(U, actual_value, actual_latency, MedConf)) {
         int ALL = 0;
         int NA = 0;
-        int DEP = (U->HitBank + 1) + ((random() & 7) == 0);
+        int DEP = (U->HitBank + 1) + ((rng() & 7) == 0);
         if (U->HitBank == 0)
           DEP++;
 
         if (U->HitBank == -1) {
-          if (random() & 7)
-            DEP = random() & 1;
+          if (rng() & 7)
+            DEP = rng() & 1;
           else
-            DEP = 2 + ((random() & 7) == 0);
+            DEP = 2 + ((rng() & 7) == 0);
         }
 
         if (DEP > 1) {
@@ -499,7 +502,7 @@ void UpdateVtagePred(ForUpdate *U, uint64_t actual_value, int actual_latency) {
             int index = U->GI[i];
             if ((Vtage[index].u == 0) &&
                 ((Vtage[index].conf == MAXCONFID / 2) ||
-                 (Vtage[index].conf <= (random() & MAXCONFID))))
+                 (Vtage[index].conf <= (rng() & MAXCONFID))))
             // slightly favors the entries with real confidence
             {
               Vtage[index].hashpt = HashData;
@@ -523,7 +526,7 @@ void UpdateVtagePred(ForUpdate *U, uint64_t actual_value, int actual_latency) {
             int index = U->GI[i];
             if ((Vtage[index].u == 0) &&
                 ((Vtage[index].conf == MAXCONFID / 2) ||
-                 (Vtage[index].conf <= (random() & MAXCONFID)))) {
+                 (Vtage[index].conf <= (rng() & MAXCONFID)))) {
               Vtage[index].hashpt = HashData;
               Vtage[index].conf = MAXCONFID / 2;
               if (U->NbOperand == 0)

@@ -1,7 +1,9 @@
 #ifndef __PREDICTOR_H__
 #define __PREDICTOR_H__
 
+#include <chrono>
 #include <inttypes.h>
+#include <random>
 
 #define USE_WIDTH (2)
 #define USE_MAX ((1 << USE_WIDTH) - 1)
@@ -24,6 +26,12 @@ static uint64_t tage_hist[TAGE_HIST_LEN] = { 0, 1, 3, 6, 13, 20, 30, 36, 45, 57 
 #define TAGE_SIZE (TAGE_BANK_CNT * TAGE_BANK_SIZE)
 
 static uint64_t committed_seq;
+
+// To see why `rand()` is not a good rng refer:
+// https://codeforces.com/blog/entry/61587
+//
+// Hence, use mt19937 as it is a better rng.
+static std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
 
 static uint64_t global_val_hist = 0;
 static uint64_t global_pth_hist = 0;
@@ -141,9 +149,9 @@ struct inflight_entry_t {
     bool predicted;
     bool prediction_result;
     bool to_update;
+    int64_t hit_bank;
     uint64_t global_index[TAGE_HIST_LEN + 1];
     uint64_t global_tag[TAGE_HIST_LEN + 1];
-    uint64_t hit_bank;
     uint64_t pc;
     uint64_t predicted_val;
     uint8_t instruction_type;

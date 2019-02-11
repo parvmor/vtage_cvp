@@ -93,7 +93,7 @@ void speculativeUpdate(uint64_t seq_no, bool eligible, uint8_t prediction_result
     if (eligible) {
         last_mispred += 1;
         inflight_entry->operands_cnt =
-            (src1 != 0xdeadbeef) + (src2 != 0xdeadbeef) + (src3 != 0xdeadbeef);
+            int8_t((src1 != 0xdeadbeef) + (src2 != 0xdeadbeef) + (src3 != 0xdeadbeef));
         inflight_entry->to_update = true;
         inflight_entry->instruction_type = insn;
         inflight_entry->prediction_result = prediction_result;

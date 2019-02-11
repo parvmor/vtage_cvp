@@ -1,6 +1,6 @@
 #include <deque>
 #include <vector>
-// #define PREDSTRIDE
+#define PREDSTRIDE
 #define PREDVTAGE
 
 // 8KB
