@@ -131,15 +131,18 @@ bool strideupdateconf(ForUpdate *U, uint64_t actual_value, int actual_latency,
    ((rng() & ((1 << (NOTLLCMISS + NOTL2MISS + NOTL1MISS + 2 * MFASTINST +   \
                         2 * (U->INSTTYPE != loadInstClass))) -                 \
                  1)) == 0))
-  return (UPDATECONFSTR &
-          ((abs(stride) > 1) || (U->INSTTYPE != loadInstClass) ||
-           ((stride == -1) & ((rng() & 1) == 0)) ||
-           ((stride == 1) & ((rng() & 3) == 0))));
+  return (UPDATECONFSTR);
 }
 
 // Allocate or not if instruction absent from the predictor
 bool StrideAllocateOrNot(ForUpdate *U, uint64_t actual_value,
                          int actual_latency) {
+#define UPDATECONFSTR                                                          \
+  (                             \
+   ((rng() & ((1 << (NOTLLCMISS + NOTL2MISS + NOTL1MISS + 2 * MFASTINST +   \
+                        2 * (U->INSTTYPE != loadInstClass))) -                 \
+                 1)) == 0))
+  return (UPDATECONFSTR);
   bool X = false;
 #define LOGPBINVSTR 4
   switch (U->INSTTYPE) {
@@ -341,19 +344,18 @@ bool VtageAllocateOrNot(ForUpdate *U, uint64_t actual_value, int actual_latency,
                         bool MedConf) {
   bool X = false;
 
+    bool k = (((U->NbOperand >= 2) & ((rng() & 15) == 0)) ||
+        ((U->NbOperand < 2) & ((rng() & 63) == 0)));
   switch (U->INSTTYPE) {
   case undefInstClass:
   case aluInstClass:
   case storeInstClass:
-    if (((U->NbOperand >= 2) & ((rng() & 15) == 0)) ||
-        ((U->NbOperand < 2) & ((rng() & 63) == 0)))
     case fpInstClass:
     case slowAluInstClass:
     case loadInstClass:
         X = ((rng() & ((2 << (
             ((U->INSTTYPE != loadInstClass) || (NOTL1MISS)) +
-              LOWVAL + NOTLLCMISS + NOTL2MISS + NOTL1MISS + 2 * FASTINST)) - 1)) == 0) ||
-           MedConf;
+              LOWVAL + NOTLLCMISS + NOTL2MISS + NOTL1MISS + 2 * FASTINST + k)) - 1)) == 0);
 
     break;
   case uncondIndirectBranchInstClass:

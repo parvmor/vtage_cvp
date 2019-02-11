@@ -10,7 +10,7 @@
 
 #define CONF_WIDTH (4)
 #define CONF_MAX ((1 << CONF_WIDTH) - 1)
-#define CONF_THRESHOLD (CONF_MAX)
+#define CONF_THRESHOLD ((CONF_MAX >> 1) + 1)
 
 #define STRIDE_LOG (25)
 #define STRIDE_MIN (-(1 << (STRIDE_LOG - 1)))
@@ -24,6 +24,18 @@ static uint64_t tage_hist[TAGE_HIST_LEN] = { 0, 1, 3, 6, 13, 20, 30, 36, 45, 57 
 #define TAGE_BANK_SIZE (1 << TAGE_BANK_LOG)
 #define TAGE_BANK_CNT (60)
 #define TAGE_SIZE (TAGE_BANK_CNT * TAGE_BANK_SIZE)
+
+#define NOT_L1_MISS  (actual_latency < 12)
+#define NOT_L2_MISS  (actual_latency < 60)
+#define NOT_LLC_MISS (actual_latency < 150)
+#define NOT_LOAD_INST (inflight_entry->instruction_type != loadInstClass)
+#define IS_FAST_INST (actual_latency <= 3)
+#define IS_VAL_LOW ((llabs(int64_t(actual_value + 1)) < (1 << 16)) + (actual_value == 0))
+#define ARE_OP_LOW ((inflight_entry->operands_cnt >= 2 && (rng() & 15) == 0) || \
+                    (inflight_entry->operands_cnt < 2 && (rng() & 63) == 0))
+#define IS_INST_GOOD (IS_VAL_LOW + NOT_LLC_MISS + NOT_L2_MISS + NOT_L1_MISS + \
+                      IS_FAST_INST + NOT_LOAD_INST + ARE_OP_LOW)
+#define IS_INST_CRITICAL ((rng() & ((1ULL << IS_INST_GOOD) - 1)) == 0)
 
 static uint64_t committed_seq;
 
@@ -73,7 +85,7 @@ uint64_t tage_index(int i, uint64_t pc)
     aux = (pc >> i) ^ pc;
 
     // hash with global path history
-    aux ^= ((1 << hist_len) - 1) & global_pth_hist;
+    aux ^= ((1ULL << hist_len) - 1) & global_pth_hist;
     for (int j = 0; j < TAGE_HIST_LEN; j++) {
         hash_val ^= aux;
         aux ^= (aux & 15) << 16;
@@ -81,7 +93,7 @@ uint64_t tage_index(int i, uint64_t pc)
     }
 
     // hash with global target history
-    aux ^= ((1 << hist_len) - 1) & global_tgt_hist;
+    aux ^= ((1ULL << hist_len) - 1) & global_tgt_hist;
     for (int j = 0; j < TAGE_HIST_LEN; j++) {
         hash_val ^= aux;
         aux ^= (aux & 15) << 16;
@@ -118,7 +130,7 @@ uint64_t tage_tag(int i, uint64_t pc)
     aux = (pc >> (i + 5)) ^ (pc >> i) ^ pc;
 
     // hash with global path history
-    aux ^= ((1 << hist_len) - 1) & global_pth_hist;
+    aux ^= ((1ULL << hist_len) - 1) & global_pth_hist;
     for (int j = 0; j < TAGE_HIST_LEN; j++) {
         hash_val ^= aux;
         aux ^= (aux & 31) << 14;
@@ -126,7 +138,7 @@ uint64_t tage_tag(int i, uint64_t pc)
     }
 
     // hash with global target history
-    aux ^= ((1 << hist_len) - 1) & global_tgt_hist;
+    aux ^= ((1ULL << hist_len) - 1) & global_tgt_hist;
     for (int j = 0; j < TAGE_HIST_LEN; j++) {
         hash_val ^= aux;
         aux ^= (aux & 31) << 14;
@@ -147,12 +159,12 @@ uint64_t tage_tag(int i, uint64_t pc)
 #define INFLIGHT_MAX (1 << 9)
 struct inflight_entry_t {
     bool predicted;
-    bool prediction_result;
     bool to_update;
     int64_t hit_bank;
     uint64_t global_index[TAGE_HIST_LEN + 1];
     uint64_t global_tag[TAGE_HIST_LEN + 1];
     uint64_t pc;
+    uint64_t prediction_result;
     uint64_t predicted_val;
     uint8_t instruction_type;
     uint8_t operands_cnt;
