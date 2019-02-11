@@ -4,6 +4,7 @@
 #include <cstring>
 #include <utility>
 
+#include "../debug.h"
 #include "mypredictor.h"
 #include "../cvp_kit/cvp.h"
 
@@ -90,8 +91,8 @@ void speculativeUpdate(uint64_t seq_no, bool eligible, uint8_t prediction_result
 {
     inflight_entry_t *inflight_entry;
     inflight_entry = inflight_entries + (seq_no & (INFLIGHT_MAX - 1));
+    last_mispred += 1;
     if (eligible) {
-        last_mispred += 1;
         inflight_entry->operands_cnt =
             int8_t((src1 != 0xdeadbeef) + (src2 != 0xdeadbeef) + (src3 != 0xdeadbeef));
         inflight_entry->to_update = true;
@@ -163,15 +164,18 @@ void update_tage_predictor(inflight_entry_t *inflight_entry,
         // Ideally, the instruction should be inflight.
         // But it may happen that it was replaced.
         // As of now raise an error in such a case.
-        assert(tage_entry->tag == tage_tag);
+        /* assert(tage_entry->tag == tage_tag); */
 
         int64_t last_value = int64_t(tage_entry->last_value);
         int64_t stride = int64_t(tage_entry->stride);
-        int64_t actual_stride = int64_t(actual_value) - last_value;
-        bool stride_in_limit = STRIDE_MIN <= actual_stride && actual_stride <= STRIDE_MAX;
         // Assuming updatePrediction sequence and getPrediction sequence matches
         // Cannot use inflight_entry->predicted_val since prediction is not necessary
         uint64_t predicted_val = uint64_t(last_value + stride);
+        int64_t actual_stride = int64_t(actual_value) - last_value;
+        bool stride_in_limit = STRIDE_MIN <= actual_stride && actual_stride <= STRIDE_MAX;
+
+        // Change the last value to be actual value here
+        tage_entry->last_value = actual_value;
 
         if (tage_entry->first_occurrence == 1) {
             tage_entry->first_occurrence = 0;
@@ -183,6 +187,7 @@ void update_tage_predictor(inflight_entry_t *inflight_entry,
                 tage_entry->useful = 0;
             }
         } else {
+            /* debug(stride_in_limit, actual_stride, last_value, predicted_val, actual_value); */
             if (predicted_val == actual_value) {
                 // could have been a correct prediction
                 if (tage_entry->confidence < CONF_MAX) {
@@ -225,7 +230,8 @@ void update_tage_predictor(inflight_entry_t *inflight_entry,
 
     if (inflight_entry->prediction_result != 1) {
         if (is_instruction_critical(inflight_entry, actual_value, actual_latency)) {
-            int64_t hit_bank = inflight_entry->hit_bank + 1;
+            // int64_t hit_bank = inflight_entry->hit_bank + 1;
+            int64_t hit_bank = 0;
             for (int64_t i = hit_bank; i <= TAGE_HIST_LEN; i++) {
                 uint64_t tage_idx = inflight_entry->global_index[i];
                 tage_entry_t *tage_entry = tage_entries + tage_idx;
@@ -244,6 +250,9 @@ void update_tage_predictor(inflight_entry_t *inflight_entry,
                 }
                 age_counter += 1;
             }
+        }
+        if (age_counter < 0) {
+            age_counter = 0;
         }
         if (age_counter >= AGE_THRESHOLD) {
             for (int i = 0; i < TAGE_SIZE; i++) {
